@@ -11,7 +11,8 @@ void setup() {
 
 void draw() {
   background(0);
-  game.executeFrame();
+  game.drawFrame();
+  
 }
 
 void keyPressed() {
