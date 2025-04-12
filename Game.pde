@@ -43,20 +43,20 @@ class Game {
     else if(player.onGround) {
       PVector acceleration = new PVector(0, 0);
       
-      // Running
-      if(userInterface.isKeyPressed('d')) {
-        acceleration.x += player.RUN_ACC;
-      }
-      if(userInterface.isKeyPressed('a')) {
-        acceleration.x += -player.RUN_ACC;
-      }
+      int moveRight = userInterface.isKeyPressed('d') ? 1 : 0;
+      int moveLeft = userInterface.isKeyPressed('a') ? 1 : 0;
+      int moveDirection = moveRight - moveLeft;
       
-      // Braking
-      if(acceleration.x == 0 && abs(player.velocity.x) < 0.1) {
-        player.velocity.x = 0; 
+      if(moveDirection == sign(player.velocity.x) || player.velocity.x == 0) { // Running
+        acceleration.x = moveDirection * player.RUN_ACC;
       }
-      else if(acceleration.x == 0) {
-        acceleration.x = -10 * sign(player.velocity.x);
+      else { // Braking
+        if(abs(player.velocity.x) < 0.1) {
+          player.velocity.x = 0;
+        }
+        else {
+          acceleration.x = -player.BRAKE_ACC * sign(player.velocity.x);
+        }
       }
       
       if(userInterface.isKeyPressed(' ')) {
