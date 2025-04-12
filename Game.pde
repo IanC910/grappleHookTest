@@ -10,6 +10,7 @@ class Game {
   int blockWidthPixels = 40;
   PVector cameraPos = new PVector(0, 0);
   Player player;
+  PVector grapplePosition;
   
   long timeOfLastFrameMs = 0;
   
@@ -20,6 +21,7 @@ class Game {
     
     player = new Player();
     player.position = new PVector(0, 1);
+    grapplePosition = new PVector(0, 0);
   }
   
   void drawFrame() {    
@@ -35,18 +37,50 @@ class Game {
     long currentTimeMs = millis();
     float deltaTime = (float)(currentTimeMs - timeOfLastFrameMs) / 1000;
     
+    int moveRight = userInterface.isKeyPressed('d') ? 1 : 0;
+    int moveLeft = userInterface.isKeyPressed('a') ? 1 : 0;
+    int moveDirection = moveRight - moveLeft;
+    
+    // Grapple
+    if(userInterface.isMouseButtonPressed(LEFT) && !player.grappled) {      
+      grapplePosition.x = (float)(mouseX - width / 2) / blockWidthPixels + cameraPos.x;
+      grapplePosition.y = (float)(height / 2 - mouseY) / blockWidthPixels + cameraPos.y;
+      
+      if(isCoordInBlock(grapplePosition.x, grapplePosition.y)) {
+        player.grappled = true;
+        
+        PVector ropeVector = PVector.sub(player.position, grapplePosition);
+        PVector directionOfVelocity = ropeVector.copy().rotate(HALF_PI).normalize();
+        
+        float radialVelocityMagnitude = player.velocity.dot(directionOfVelocity);
+        player.angularVelocity = radialVelocityMagnitude / ropeVector.mag();
+      }
+    }
+    else if(!userInterface.isMouseButtonPressed(LEFT) && player.grappled) {
+      player.grappled = false;
+    }
+    
+    // Physics
     if(player.grappled) {
+      PVector ropeVector = PVector.sub(player.position, grapplePosition);
       
+      float angularAcc = ropeVector.x * GRAVITY_ACC / ropeVector.magSq();
+      angularAcc += moveDirection * player.SWING_ANGULAR_ACC;
       
+      player.angularVelocity += angularAcc * deltaTime;
+      
+      float deltaAngle = player.angularVelocity * deltaTime;
+      ropeVector.rotate(deltaAngle);
+      player.position = PVector.add(grapplePosition, ropeVector);
+      
+      PVector directionOfVelocity = ropeVector.copy().rotate(HALF_PI).normalize();
+      float velocityMagnitude = ropeVector.mag() * player.angularVelocity;
+      player.velocity = PVector.mult(directionOfVelocity, velocityMagnitude);
     }
     else {
-      PVector acceleration = new PVector(0, 0);
+      PVector acceleration = new PVector(0, GRAVITY_ACC);
       
-      if(player.onGround) {
-        int moveRight = userInterface.isKeyPressed('d') ? 1 : 0;
-        int moveLeft = userInterface.isKeyPressed('a') ? 1 : 0;
-        int moveDirection = moveRight - moveLeft;
-        
+      if(player.onGround) {        
         // Running
         if(moveDirection == sign(player.velocity.x) || player.velocity.x == 0) {
           acceleration.x = moveDirection * player.RUN_ACC;
@@ -61,45 +95,61 @@ class Game {
           }
         }
         
+        // Jumping
         if(userInterface.isKeyPressed(' ')) {
           player.velocity.y += player.JUMP_SPEED;
           player.onGround = false;
         }
-      }
-      else { // In air
-        acceleration = new PVector(0, GRAVITY_ACC);
       }
       
       player.velocity.add(PVector.mult(acceleration, deltaTime));
       PVector deltaPosition = PVector.mult(player.velocity, deltaTime);
       PVector newPosition = PVector.add(player.position, deltaPosition);
       
-      while(!isCoordEmptySpace(newPosition)) {
-        newPosition.add(player.position);
-        newPosition.mult(0.5);
+      // Side collisions
+      if(!isCoordEmptySpace(newPosition.x, player.position.y)) {
+        player.velocity.x = 0;
+      }
+      while(!isCoordEmptySpace(newPosition.x, player.position.y)) {
+        newPosition.x = 0.5 * (newPosition.x + player.position.x);
+      }
+      
+      // Veritcal collisions
+      if(!isCoordEmptySpace(player.position.x, newPosition.y)) {
+        player.velocity.y = 0;
+        if((int)newPosition.y < (int)player.position.y) {
+          player.onGround = true;
+        }
+      }
+      while(!isCoordEmptySpace(player.position.x, newPosition.y)) {
+        newPosition.y = 0.5 * (newPosition.y + player.position.y);
       }
       
       player.position = newPosition;
       
-      print(acceleration + ", " + player.velocity + "\n");
+      //print(acceleration + ", " + player.velocity + "\n");
     }
     
+    //print(player.velocity + "\n");
     timeOfLastFrameMs = currentTimeMs;
   }
   
-  private boolean isCoordInBlock(PVector coord) {
-    return (level[(int)coord.y][(int)coord.x] == 1);
+  private boolean isCoordInBlock(float x, float y) {
+    if(!isCoordInLevel(x, y)) {
+      return true;
+    }
+    return (level[(int)y][(int)x] == 1);
   }
   
-  private boolean isCoordInLevel(PVector coord) {
-    return coord.x >= 0 && coord.x < LEVEL_WIDTH && coord.y >= 0 && coord.y < LEVEL_HEIGHT;
+  private boolean isCoordInLevel(float x, float y) {
+    return x >= 0 && x < LEVEL_WIDTH && y >= 0 && y < LEVEL_HEIGHT;
   }
   
-  private boolean isCoordEmptySpace(PVector coord) {
-    if(!isCoordInLevel(coord)) {
+  private boolean isCoordEmptySpace(float x, float y) {
+    if(!isCoordInLevel(x, y)) {
       return false;
     }
-    return !isCoordInBlock(coord);
+    return !isCoordInBlock(x, y);
   }
   
   private int sign(float x) {
@@ -107,27 +157,39 @@ class Game {
   }
   
   private void drawLevel() {
+    stroke(0);
     for(int i = 0; i < LEVEL_HEIGHT; i++) {
       for(int j = 0; j < LEVEL_WIDTH; j++) {
         if(level[i][j] == 1) {
           rect(
             width / 2 + (j - cameraPos.x) * blockWidthPixels,
-            height / 2 - (i - cameraPos.y) * blockWidthPixels,
+            height / 2 - (i + 1 - cameraPos.y) * blockWidthPixels,
             blockWidthPixels,
             blockWidthPixels
           );
         }
       }
-    }
+    } 
   }
   
   private void drawPlayer() {
     rect(
-      width / 2 + (player.position.x - cameraPos.x) * blockWidthPixels,
-      height / 2 - (player.position.y - cameraPos.y) * blockWidthPixels,
+      width / 2 + (player.position.x - cameraPos.x) * blockWidthPixels - 10,
+      height / 2 - (player.position.y + 1 - cameraPos.y) * blockWidthPixels,
       20,
-      20
+      40
     );
+    
+    if(player.grappled) {
+      strokeWeight(2);
+      stroke(128);
+      line(
+        width / 2 + (player.position.x - cameraPos.x) * blockWidthPixels,
+        height / 2 - (player.position.y - cameraPos.y) * blockWidthPixels - 30,
+        width / 2 + (grapplePosition.x - cameraPos.x) * blockWidthPixels,
+        height / 2 - (grapplePosition.y - cameraPos.y) * blockWidthPixels
+      );
+    }
   }
   
   private void initLevel() {

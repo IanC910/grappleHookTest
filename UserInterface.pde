@@ -37,7 +37,7 @@ class UserInterface {
     return keyStatus[k];
   }
   
-  boolean isMouseButtonPressed(char mb) {
+  boolean isMouseButtonPressed(int mb) {
     return mouseButtonStatus[mb]; 
   }
   
