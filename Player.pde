@@ -8,6 +8,9 @@ class Player {
   
   PVector position;
   PVector velocity;
-  boolean isGrappled = false;
+  final float MAX_RUN_SPEED = 5;
+  final float JUMP_SPEED = 5;
+  final float RUN_ACC = 5;
+  boolean grappled = false;
   boolean onGround = true;
 }

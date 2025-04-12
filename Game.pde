@@ -5,6 +5,8 @@ class Game {
   int LEVEL_WIDTH_BLOCKS = 100;
   int LEVEL_HEIGHT_BLOCKS = 10;
   
+  float GRAVITY_ACC = -10;
+  
   int blockWidthPixels = 40;
   PVector cameraPos = new PVector(0, 0);
   Player player;
@@ -17,13 +19,11 @@ class Game {
     initLevel();
     
     player = new Player();
-    player.position = new PVector(1, 1);
+    player.position = new PVector(0, 1);
   }
   
-  void drawFrame() {
-    handleUserInput();
-    
-    doPhysics();
+  void drawFrame() {    
+    doLogic();
     
     cameraPos = player.position;
     
@@ -31,23 +31,69 @@ class Game {
     drawPlayer();
   }
   
-  private void handleUserInput() {
-    player.velocity.x = 0;
-    if(userInterface.isKeyPressed('d')) {
-      player.velocity.x += 1;
-    }
-    if(userInterface.isKeyPressed('a')) {
-      player.velocity.x += -1;
-    }
-  }
-  
-  private void doPhysics() {
+  private void doLogic() {
     long currentTimeMs = millis();
-    float deltaTimeMs = (float)(currentTimeMs - timeOfLastFrameMs);
+    float deltaTime = (float)(currentTimeMs - timeOfLastFrameMs) / 1000;
     
-    player.position.add(PVector.mult(player.velocity, deltaTimeMs / 1000));
+    if(player.grappled) {
+      
+      
+    }
+    
+    else if(player.onGround) {
+      PVector acceleration = new PVector(0, 0);
+      
+      // Running
+      if(userInterface.isKeyPressed('d')) {
+        acceleration.x += player.RUN_ACC;
+      }
+      if(userInterface.isKeyPressed('a')) {
+        acceleration.x += -player.RUN_ACC;
+      }
+      
+      // Braking
+      if(acceleration.x == 0 && abs(player.velocity.x) < 0.1) {
+        player.velocity.x = 0; 
+      }
+      else if(acceleration.x == 0) {
+        acceleration.x = -10 * sign(player.velocity.x);
+      }
+      
+      if(userInterface.isKeyPressed(' ')) {
+        player.velocity.y += player.JUMP_SPEED;
+        player.onGround = false;
+      }
+      
+      player.velocity.add(PVector.mult(acceleration, deltaTime));
+      player.position.add(PVector.mult(player.velocity, deltaTime));      
+
+      print(acceleration + ", " + player.velocity + "\n");
+    }
+    
+    else { // In air
+      PVector acceleration = new PVector(0, GRAVITY_ACC);
+      
+      player.velocity.add(PVector.mult(acceleration, deltaTime));
+      PVector deltaPosition = PVector.mult(player.velocity, deltaTime);
+      PVector newPosition = PVector.add(player.position, deltaPosition);
+      
+      while(level[(int)newPosition.y][(int)newPosition.x] == 1) {
+        newPosition.add(player.position);
+        newPosition.mult(0.5);
+        player.onGround = true;
+        player.velocity.y = 0;
+      }
+      
+      player.position = newPosition;
+      
+      print(acceleration + ", " + player.velocity + "\n");
+    }
     
     timeOfLastFrameMs = currentTimeMs;
+  }
+  
+  private int sign(float x) {
+    return ((x > 0) ? 1 : 0) - ((x < 0) ? 1 : 0);
   }
   
   private void drawLevel() {
@@ -67,10 +113,10 @@ class Game {
   
   private void drawPlayer() {
     rect(
-      width / 2 + (player.position.x  - cameraPos.x) * blockWidthPixels,
-      height / 2 - (player.position.y  - cameraPos.y) * blockWidthPixels,
-      10,
-      10
+      width / 2 + (player.position.x - cameraPos.x) * blockWidthPixels,
+      height / 2 - (player.position.y - cameraPos.y) * blockWidthPixels,
+      20,
+      20
     );
   }
   
