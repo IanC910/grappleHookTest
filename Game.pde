@@ -15,7 +15,7 @@ class Game {
   Game(UserInterface userInterface) {
     this.userInterface = userInterface;
     
-    player.position = new PVector(0, 1);
+    player.position = new PVector(1, 1);
     grapplePosition = new PVector(0, 0);
     
     try {
@@ -106,10 +106,12 @@ class Game {
       }
       
       player.velocity.add(PVector.mult(acceleration, deltaTime));
+      if(player.onGround && abs(player.velocity.x) > player.MAX_RUN_SPEED) {
+        player.velocity.x = player.MAX_RUN_SPEED * sign(player.velocity.x);
+      }
+      
       PVector deltaPosition = PVector.mult(player.velocity, deltaTime);
       PVector newPosition = PVector.add(player.position, deltaPosition);
-      
-      print(1);
       
       // Side collisions
       if(!level.isCoordEmptySpace(newPosition.x, player.position.y)) {
@@ -119,8 +121,6 @@ class Game {
           newPosition.x = 0.5 * (newPosition.x + player.position.x);
         }
       }
-      
-      print(2);
       
       // Veritcal collisions
       if(!level.isCoordEmptySpace(player.position.x, newPosition.y)) {
@@ -135,11 +135,8 @@ class Game {
       }
       
       player.position = newPosition;
-      
-      //print(acceleration + ", " + player.velocity + "\n");
     }
     
-    //print(player.velocity + "\n");
     timeOfLastFrameMs = currentTimeMs;
   }
   
@@ -151,7 +148,6 @@ class Game {
     stroke(0);
     for(int i = 0; i < level.levelHeight; i++) {
       for(int j = 0; j < level.levelWidth; j++) {
-        print((int)level.blocks[i][j]);
         if(level.blocks[i][j] == 1) {
           rect(
             width / 2 + (j - cameraPos.x) * blockWidthPixels,
