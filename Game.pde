@@ -136,7 +136,7 @@ class Game {
   
   private boolean isCoordInBlock(float x, float y) {
     if(!isCoordInLevel(x, y)) {
-      return true;
+      return false;
     }
     return (level[(int)y][(int)x] == 1);
   }
