@@ -1,30 +1,33 @@
 
 class Game {
   
-  char[][] level;
-  int LEVEL_WIDTH = 100;
-  int LEVEL_HEIGHT = 10;
-  
   float GRAVITY_ACC = -10;
   
   int blockWidthPixels = 40;
-  PVector cameraPos = new PVector(0, 0);
-  Player player;
-  PVector grapplePosition;
+  
+  Player player = new Player();
+  PVector cameraPos = new PVector();
+  PVector grapplePosition = new PVector();
+  Level level = null;
   
   long timeOfLastFrameMs = 0;
   
   Game(UserInterface userInterface) {
     this.userInterface = userInterface;
     
-    initLevel();
-    
-    player = new Player();
     player.position = new PVector(0, 1);
     grapplePosition = new PVector(0, 0);
+    
+    try {
+      level = new Level("C:/Users/Ian/Projects/grappleHookTest/levels/level0.lvl");
+    }
+    catch(Exception e) {
+      print(e.toString());
+      exit();
+    }
   }
   
-  void drawFrame() {    
+  void drawFrame() {
     doLogic();
     
     cameraPos = player.position;
@@ -46,7 +49,7 @@ class Game {
       grapplePosition.x = (float)(mouseX - width / 2) / blockWidthPixels + cameraPos.x;
       grapplePosition.y = (float)(height / 2 - mouseY) / blockWidthPixels + cameraPos.y;
       
-      if(isCoordInBlock(grapplePosition.x, grapplePosition.y)) {
+      if(level.isCoordInBlock(grapplePosition.x, grapplePosition.y)) {
         player.grappled = true;
         
         PVector ropeVector = PVector.sub(player.position, grapplePosition);
@@ -106,23 +109,29 @@ class Game {
       PVector deltaPosition = PVector.mult(player.velocity, deltaTime);
       PVector newPosition = PVector.add(player.position, deltaPosition);
       
+      print(1);
+      
       // Side collisions
-      if(!isCoordEmptySpace(newPosition.x, player.position.y)) {
+      if(!level.isCoordEmptySpace(newPosition.x, player.position.y)) {
         player.velocity.x = 0;
-      }
-      while(!isCoordEmptySpace(newPosition.x, player.position.y)) {
-        newPosition.x = 0.5 * (newPosition.x + player.position.x);
+        
+        while(!level.isCoordEmptySpace(newPosition.x, player.position.y)) {
+          newPosition.x = 0.5 * (newPosition.x + player.position.x);
+        }
       }
       
+      print(2);
+      
       // Veritcal collisions
-      if(!isCoordEmptySpace(player.position.x, newPosition.y)) {
+      if(!level.isCoordEmptySpace(player.position.x, newPosition.y)) {
         player.velocity.y = 0;
         if((int)newPosition.y < (int)player.position.y) {
           player.onGround = true;
         }
-      }
-      while(!isCoordEmptySpace(player.position.x, newPosition.y)) {
-        newPosition.y = 0.5 * (newPosition.y + player.position.y);
+        
+        while(!level.isCoordEmptySpace(player.position.x, newPosition.y)) {
+          newPosition.y = 0.5 * (newPosition.y + player.position.y);
+        }
       }
       
       player.position = newPosition;
@@ -134,33 +143,16 @@ class Game {
     timeOfLastFrameMs = currentTimeMs;
   }
   
-  private boolean isCoordInBlock(float x, float y) {
-    if(!isCoordInLevel(x, y)) {
-      return false;
-    }
-    return (level[(int)y][(int)x] == 1);
-  }
-  
-  private boolean isCoordInLevel(float x, float y) {
-    return x >= 0 && x < LEVEL_WIDTH && y >= 0 && y < LEVEL_HEIGHT;
-  }
-  
-  private boolean isCoordEmptySpace(float x, float y) {
-    if(!isCoordInLevel(x, y)) {
-      return false;
-    }
-    return !isCoordInBlock(x, y);
-  }
-  
   private int sign(float x) {
     return ((x > 0) ? 1 : 0) - ((x < 0) ? 1 : 0);
   }
   
   private void drawLevel() {
     stroke(0);
-    for(int i = 0; i < LEVEL_HEIGHT; i++) {
-      for(int j = 0; j < LEVEL_WIDTH; j++) {
-        if(level[i][j] == 1) {
+    for(int i = 0; i < level.levelHeight; i++) {
+      for(int j = 0; j < level.levelWidth; j++) {
+        print((int)level.blocks[i][j]);
+        if(level.blocks[i][j] == 1) {
           rect(
             width / 2 + (j - cameraPos.x) * blockWidthPixels,
             height / 2 - (i + 1 - cameraPos.y) * blockWidthPixels,
@@ -189,14 +181,6 @@ class Game {
         width / 2 + (grapplePosition.x - cameraPos.x) * blockWidthPixels,
         height / 2 - (grapplePosition.y - cameraPos.y) * blockWidthPixels
       );
-    }
-  }
-  
-  private void initLevel() {
-    level = new char[LEVEL_HEIGHT][LEVEL_WIDTH];
-    for(int j = 0; j < LEVEL_WIDTH; j++) {
-      level[0][j] = 1;
-      level[LEVEL_HEIGHT - 1][j] = 1;
     }
   }
   
